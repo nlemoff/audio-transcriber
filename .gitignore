@@ -1,0 +1,15 @@
+# Build artifacts
+build/
+MicAudioRecorder.app/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride 

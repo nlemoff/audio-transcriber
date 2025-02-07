@@ -2,9 +2,12 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including python3-distutils
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    python3-distutils \
+    python3-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python packages
