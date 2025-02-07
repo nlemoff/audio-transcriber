@@ -7,6 +7,7 @@ A macOS app that records audio and provides real-time transcription.
 - macOS 11.0 or later
 - Python 3.9 or later
 - Microphone access
+- Xcode Command Line Tools (for building the app)
 
 ## Installation
 
@@ -14,6 +15,7 @@ A macOS app that records audio and provides real-time transcription.
 2. Right-click on `run_app.command` and select "Open"
    - If you get a security warning, go to System Settings -> Privacy & Security and allow the script to run
 3. The script will:
+   - Build the app using Xcode tools
    - Check for Python and pip
    - Set up a virtual environment
    - Install required Python packages

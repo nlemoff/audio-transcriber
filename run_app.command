@@ -2,6 +2,26 @@
 
 # Change to the script's directory
 cd "$(dirname "$0")"
+SCRIPT_DIR="$(pwd)"
+
+# Check if xcodebuild is available
+if ! command -v xcodebuild &> /dev/null; then
+    echo "xcodebuild is required but not installed. Please install Xcode from the App Store"
+    exit 1
+fi
+
+# Build the Swift app
+echo "Building MicAudioRecorder app..."
+xcodebuild -project MicAudioRecorder.xcodeproj -scheme MicAudioRecorder -configuration Release -derivedDataPath build
+
+# Check if build was successful
+if [ ! -d "build/Build/Products/Release/MicAudioRecorder.app" ]; then
+    echo "Failed to build MicAudioRecorder.app"
+    exit 1
+fi
+
+# Copy the built app to the current directory
+cp -r build/Build/Products/Release/MicAudioRecorder.app .
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null; then
@@ -37,9 +57,9 @@ BACKEND_PID=$!
 # Wait a moment for the server to start
 sleep 2
 
-# Open the macOS app
+# Open the macOS app (using the correct path)
 echo "Starting MicAudioRecorder..."
-open MicAudioRecorder.app
+open "$SCRIPT_DIR/MicAudioRecorder.app"
 
 # Function to handle script termination
 cleanup() {
