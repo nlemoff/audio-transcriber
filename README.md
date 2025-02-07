@@ -11,7 +11,7 @@ A macOS app that records audio and provides real-time transcription.
 
 ## Installation
 
-1. Download and unzip the MicAudioRecorder package
+1. Clone the whole repository to your machine.
 2. Right-click on `run_app.command` and select "Open"
    - If you get a security warning, go to System Settings -> Privacy & Security and allow the script to run
 3. The script will:
