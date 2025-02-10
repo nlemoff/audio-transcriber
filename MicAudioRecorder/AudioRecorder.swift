@@ -15,19 +15,133 @@ class AudioRecorder: NSObject, ObservableObject {
     @Published var permissionGranted = false
     @Published var audioFileURL: URL?
     @Published var isBlackHoleInstalled = false
+    @Published var isInitialized = false
     private var recordingCount = 0
     private let fileManager = FileManager.default
     private var recordingsDirectory: URL?
     private let audioEngine = AVAudioEngine()
     private let mixer = AVAudioMixerNode()
     private var audioFile: AVAudioFile?
+    private var captureSession: AVCaptureSession?
+    private var audioInput: AVCaptureDeviceInput?
     
     override init() {
         super.init()
-        setupRecordingsDirectory()
-        checkBlackHoleInstallation()
-        setupAudioEngine()
-        checkMicrophoneAuthorization()
+        // Defer setup to avoid blocking initialization
+        DispatchQueue.main.async { [weak self] in
+            self?.setupRecordingsDirectory()
+        }
+    }
+    
+    func initialize() {
+        // Only initialize once and ensure we're on the main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Don't initialize twice
+            guard !self.isInitialized else {
+                print("AudioRecorder already initialized")
+                return
+            }
+            
+            print("Starting AudioRecorder initialization")
+            
+            // Check microphone authorization first
+            let authStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+            print("Current audio authorization status: \(authStatus.rawValue)")
+            
+            switch authStatus {
+            case .authorized:
+                print("Microphone access already authorized")
+                self.permissionGranted = true
+                self.initializeAudioComponents()
+                
+            case .notDetermined:
+                print("Requesting microphone access...")
+                AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+                    guard let self = self else { return }
+                    DispatchQueue.main.async {
+                        self.permissionGranted = granted
+                        print("Microphone access \(granted ? "granted" : "denied")")
+                        if granted {
+                            self.initializeAudioComponents()
+                        } else {
+                            self.isInitialized = true
+                        }
+                    }
+                }
+                
+            case .denied, .restricted:
+                print("Microphone access denied or restricted")
+                self.permissionGranted = false
+                self.isInitialized = true
+                
+            @unknown default:
+                print("Unknown authorization status")
+                self.permissionGranted = false
+                self.isInitialized = true
+            }
+        }
+    }
+    
+    private func initializeAudioComponents() {
+        // Run audio setup on background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            // Setup components with timeouts
+            let setupGroup = DispatchGroup()
+            
+            // Check BlackHole installation
+            setupGroup.enter()
+            self.checkBlackHoleInstallation()
+            setupGroup.leave()
+            
+            // Setup audio engine
+            setupGroup.enter()
+            self.setupAudioEngine()
+            setupGroup.leave()
+            
+            // Setup system audio capture
+            setupGroup.enter()
+            self.setupSystemAudioCapture()
+            setupGroup.leave()
+            
+            // Wait for all setup to complete with timeout
+            let result = setupGroup.wait(timeout: .now() + 5.0)
+            
+            DispatchQueue.main.async {
+                if result == .timedOut {
+                    print("Audio setup timed out")
+                } else {
+                    print("Audio setup completed successfully")
+                }
+                self.isInitialized = true
+            }
+        }
+    }
+    
+    func showMicrophonePermissionAlert() {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Microphone Access Required"
+            alert.informativeText = "This app requires microphone access to record audio. Please enable it in System Settings."
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Cancel")
+            
+            if alert.runModal() == .alertFirstButtonReturn {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+    
+    private func checkMicrophoneAuthorization() {
+        // This is now handled during initialization
+        if !permissionGranted {
+            showMicrophonePermissionAlert()
+        }
     }
     
     private func checkBlackHoleInstallation() {
@@ -101,36 +215,256 @@ class AudioRecorder: NSObject, ObservableObject {
         }
     }
     
+    private func setupSystemAudioCapture() {
+        guard isBlackHoleInstalled else { return }
+        
+        // Find BlackHole audio device using AVCaptureDevice.DiscoverySession
+        let discoverySession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone],
+            mediaType: .audio,
+            position: .unspecified
+        )
+        
+        let blackHoleDevice = discoverySession.devices.first { device in
+            device.localizedName.lowercased().contains("blackhole")
+        }
+        
+        if let device = blackHoleDevice {
+            do {
+                // Create capture session if needed
+                if captureSession == nil {
+                    captureSession = AVCaptureSession()
+                    print("Created new capture session")
+                }
+                
+                // Only reconfigure if not already configured
+                if captureSession?.inputs.isEmpty ?? true {
+                    captureSession?.beginConfiguration()
+                    
+                    // Create and add new input
+                    audioInput = try AVCaptureDeviceInput(device: device)
+                    
+                    if let captureSession = captureSession,
+                       let audioInput = audioInput,
+                       captureSession.canAddInput(audioInput) {
+                        captureSession.addInput(audioInput)
+                        print("Added BlackHole input to capture session")
+                        captureSession.commitConfiguration()
+                    } else {
+                        captureSession?.commitConfiguration()
+                        print("Failed to add BlackHole input to capture session")
+                    }
+                }
+                
+                // Start the session if it's not running
+                if !(captureSession?.isRunning ?? false) {
+                    captureSession?.startRunning()
+                    print("Started capture session")
+                }
+            } catch let error {
+                print("Error setting up system audio capture: \(error)")
+                captureSession?.commitConfiguration()
+            }
+        } else {
+            print("Could not find BlackHole audio device")
+        }
+    }
+    
     private func setupAudioEngine() {
-        do {
-            print("Setting up audio engine...")
-            if audioEngine.isRunning {
-                print("Stopping running audio engine")
-                audioEngine.stop()
+        print("Setting up audio engine...")
+        if audioEngine.isRunning {
+            print("Stopping running audio engine")
+            audioEngine.stop()
+        }
+        
+        print("Resetting audio engine")
+        audioEngine.reset()
+        
+        print("Attaching mixer node")
+        audioEngine.attach(mixer)
+        
+        // Get the default input (microphone)
+        let inputNode = audioEngine.inputNode
+        let hardwareFormat = inputNode.outputFormat(forBus: 0)
+        print("Microphone format: \(hardwareFormat)")
+        
+        // Create stereo format for all connections
+        guard let stereoFormat = AVAudioFormat(
+            standardFormatWithSampleRate: 48000,
+            channels: 2
+        ) else {
+            print("Failed to create stereo format")
+            return
+        }
+        
+        // Create submixer nodes for each input
+        let micMixer = AVAudioMixerNode()
+        let blackHoleMixer = AVAudioMixerNode()
+        audioEngine.attach(micMixer)
+        audioEngine.attach(blackHoleMixer)
+        
+        // Connect microphone input to its submixer
+        audioEngine.connect(inputNode, to: micMixer, format: hardwareFormat)
+        audioEngine.connect(micMixer, to: mixer, format: stereoFormat)
+        micMixer.pan = -1.0  // Pan microphone to left
+        micMixer.volume = 0.8
+        
+        // Create and connect BlackHole input if available
+        if let blackHoleDevice = findBlackHoleDevice() {
+            print("Found BlackHole device")
+            
+            // Create a source node for BlackHole input
+            let blackHoleInput = AVAudioSourceNode { [weak self] _, timeStamp, frameCount, audioBufferList -> OSStatus in
+                guard let self = self else { return noErr }
+                
+                let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+                
+                // Check if capture session is running and properly configured
+                if let session = self.captureSession,
+                   session.isRunning,
+                   let input = self.audioInput,
+                   session.inputs.contains(input) {
+                    
+                    // Process each buffer in the audio buffer list
+                    for buffer in ablPointer {
+                        guard let mData = buffer.mData else { continue }
+                        
+                        // Set a small DC offset to keep the audio chain active
+                        let floatData = mData.assumingMemoryBound(to: Float.self)
+                        for frame in 0..<Int(frameCount) {
+                            // Add a tiny DC offset to maintain the audio chain
+                            if floatData[frame] == 0 {
+                                floatData[frame] = 0.000001
+                            }
+                        }
+                    }
+                    return noErr
+                } else {
+                    // Fill with silence if capture session is not properly configured
+                    for buffer in ablPointer {
+                        memset(buffer.mData, 0, Int(buffer.mDataByteSize))
+                    }
+                    return noErr
+                }
             }
             
-            print("Resetting audio engine")
-            audioEngine.reset()
+            audioEngine.attach(blackHoleInput)
             
-            print("Attaching mixer node")
-            audioEngine.attach(mixer)
+            // Connect BlackHole input directly to its submixer with stereo format
+            audioEngine.connect(blackHoleInput, to: blackHoleMixer, format: stereoFormat)
+            audioEngine.connect(blackHoleMixer, to: mixer, format: stereoFormat)
             
-            let inputNode = audioEngine.inputNode
-            let hardwareFormat = inputNode.outputFormat(forBus: 0)
-            print("Input hardware format: \(hardwareFormat)")
+            blackHoleMixer.pan = 1.0  // Pan BlackHole to right
+            blackHoleMixer.volume = 1.0
             
-            // Set the mixer's input and output format to match the hardware
-            print("Connecting input to mixer")
-            audioEngine.connect(inputNode, to: mixer, format: hardwareFormat)
-            
-            print("Preparing audio engine")
-            audioEngine.prepare()
-            
-            print("Audio engine setup complete")
-            
-        } catch {
-            print("Error setting up audio engine: \(error)")
+            print("Connected BlackHole input to mixer")
         }
+        
+        // Ensure output is muted to prevent feedback
+        audioEngine.mainMixerNode.volume = 0
+        
+        print("Preparing audio engine")
+        do {
+            try audioEngine.prepare()
+            print("Audio engine setup complete")
+        } catch {
+            print("Error preparing audio engine: \(error)")
+        }
+    }
+    
+    private func getBlackHoleFormat(deviceID: AudioDeviceID) throws -> AVAudioFormat {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamFormat,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: 0
+        )
+        
+        var streamFormat = AudioStreamBasicDescription()
+        var propertySize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &propertySize,
+            &streamFormat
+        )
+        
+        guard status == noErr else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+        
+        return AVAudioFormat(
+            standardFormatWithSampleRate: 48000,
+            channels: 2
+        ) ?? AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2)!
+    }
+    
+    private func findBlackHoleDevice() -> AudioDeviceID? {
+        var propertySize: UInt32 = 0
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        let result = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &propertySize
+        )
+        
+        guard result == noErr else {
+            print("Error getting audio devices size: \(result)")
+            return nil
+        }
+        
+        let deviceCount = Int(propertySize) / MemoryLayout<AudioDeviceID>.size
+        var devices = [AudioDeviceID](repeating: 0, count: deviceCount)
+        
+        let getDevicesResult = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &propertySize,
+            &devices
+        )
+        
+        guard getDevicesResult == noErr else {
+            print("Error getting audio devices: \(getDevicesResult)")
+            return nil
+        }
+        
+        for device in devices {
+            var name: CFString?
+            var propertySize = UInt32(MemoryLayout<CFString?>.size)
+            var nameAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceNameCFString,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            let getNameResult = AudioObjectGetPropertyData(
+                device,
+                &nameAddress,
+                0,
+                nil,
+                &propertySize,
+                &name
+            )
+            
+            if getNameResult == noErr,
+               let deviceName = name as String?,
+               deviceName.lowercased().contains("blackhole") {
+                return device
+            }
+        }
+        
+        return nil
     }
     
     private func setupRecordingsDirectory() {
@@ -143,44 +477,6 @@ class AudioRecorder: NSObject, ObservableObject {
             print("Recordings directory set up at: \(recordingsPath.path)")
         } catch {
             print("Error setting up recordings directory: \(error)")
-        }
-    }
-    
-    private func checkMicrophoneAuthorization() {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            print("Microphone access already authorized")
-            self.permissionGranted = true
-        case .notDetermined:
-            print("Requesting microphone access...")
-            AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
-                DispatchQueue.main.async {
-                    self?.permissionGranted = granted
-                    print("Microphone access \(granted ? "granted" : "denied")")
-                }
-            }
-        case .denied:
-            print("Microphone access denied")
-            self.permissionGranted = false
-            DispatchQueue.main.async {
-                let alert = NSAlert()
-                alert.messageText = "Microphone Access Required"
-                alert.informativeText = "This app requires microphone access to record audio. Please enable it in System Settings."
-                alert.addButton(withTitle: "Open System Settings")
-                alert.addButton(withTitle: "Cancel")
-                
-                if alert.runModal() == .alertFirstButtonReturn {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-            }
-        case .restricted:
-            print("Microphone access restricted")
-            self.permissionGranted = false
-        @unknown default:
-            print("Unknown authorization status")
-            self.permissionGranted = false
         }
     }
     
@@ -197,23 +493,29 @@ class AudioRecorder: NSObject, ObservableObject {
             return
         }
         
+        // Ensure capture session is running but don't reinitialize
+        if let session = captureSession, !session.isRunning {
+            session.startRunning()
+            print("Resumed capture session")
+        }
+        
         recordingCount += 1
         let fileName = "recording_\(Int(Date().timeIntervalSince1970))_\(recordingCount).wav"
         let url = recordingsDirectory.appendingPathComponent(fileName)
         print("Will save recording to: \(url.path)")
         
         do {
-            // Get the hardware format from input node
-            let inputNode = audioEngine.inputNode
-            let hardwareFormat = inputNode.outputFormat(forBus: 0)
-            print("Hardware format for recording: \(hardwareFormat)")
+            // Create audio file with stereo format
+            let recordingFormat = AVAudioFormat(
+                standardFormatWithSampleRate: 48000,
+                channels: 2
+            )!
             
-            // Create audio file with hardware format
             print("Creating audio file...")
             audioFile = try AVAudioFile(forWriting: url, settings: [
                 AVFormatIDKey: kAudioFormatLinearPCM,
-                AVSampleRateKey: hardwareFormat.sampleRate,
-                AVNumberOfChannelsKey: hardwareFormat.channelCount,
+                AVSampleRateKey: 48000,
+                AVNumberOfChannelsKey: 2,
                 AVLinearPCMBitDepthKey: 32,
                 AVLinearPCMIsFloatKey: true,
                 AVLinearPCMIsBigEndianKey: false,
@@ -221,7 +523,7 @@ class AudioRecorder: NSObject, ObservableObject {
             ])
             
             print("Installing tap on mixer...")
-            mixer.installTap(onBus: 0, bufferSize: 4096, format: hardwareFormat) { [weak self] buffer, time in
+            mixer.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, time in
                 guard let self = self, let audioFile = self.audioFile else {
                     print("Error: Self or audio file is nil in tap block")
                     return
@@ -247,12 +549,15 @@ class AudioRecorder: NSObject, ObservableObject {
             }
             mixer.removeTap(onBus: 0)
             audioFile = nil
-            setupAudioEngine() // Reinitialize the audio engine
+            
+            // Don't stop the capture session, just reinitialize the audio engine
+            setupAudioEngine()
         }
     }
     
     func stopRecording() {
         print("Stopping recording...")
+        
         // Remove the tap from the mixer
         mixer.removeTap(onBus: 0)
         
@@ -291,7 +596,7 @@ class AudioRecorder: NSObject, ObservableObject {
             }
         }
         
-        // Reinitialize the audio engine for the next recording
+        // Reinitialize the audio engine but keep the capture session running
         setupAudioEngine()
     }
     
@@ -324,4 +629,5 @@ class AudioRecorder: NSObject, ObservableObject {
         }
     }
 }
+
 
