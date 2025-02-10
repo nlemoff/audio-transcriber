@@ -59,10 +59,6 @@ To record both system audio and microphone simultaneously:
    c. Configure the Multi-Output Device:
       - Check both your speakers/headphones AND BlackHole 2ch
       - Set your regular speakers/headphones as the master device
-   d. Create an Aggregate Device (click "+" again):
-      - Check your MacBook's built-in microphone
-      - Check BlackHole 2ch
-      - Name it something like "Combined Input"
 
 3. Configure System Sound Settings:
    - Open System Settings > Sound
@@ -75,7 +71,7 @@ To record both system audio and microphone simultaneously:
 
 Note: This setup allows you to:
 - Hear system audio through your speakers/headphones
-- Record both system audio and microphone input
+- Record both system audio (through BlackHole) and microphone input simultaneously
 - Maintain normal system functionality
 
 Troubleshooting System Audio:
@@ -86,7 +82,6 @@ Troubleshooting System Audio:
 For optimal quality:
 - In Audio MIDI Setup, set all devices to the same sample rate (48000 Hz recommended)
 - Keep the Multi-Output Device as your system output even when not recording
-- If you experience any audio drift, try recreating the Multi-Output Device
 
 ## Usage
 

@@ -138,13 +138,7 @@ struct ContentView: View {
                                 .padding(.leading)
                             Text("   • Set speakers as master device")
                                 .padding(.leading)
-                            Text("4. Create Aggregate Device:")
-                                .padding(.bottom, 2)
-                            Text("   • Check your microphone")
-                                .padding(.leading)
-                            Text("   • Check BlackHole 2ch")
-                                .padding(.leading)
-                            Text("5. In System Settings > Sound:")
+                            Text("4. In System Settings > Sound:")
                                 .padding(.bottom, 2)
                             Text("   • Set Output to Multi-Output Device")
                                 .padding(.leading)
@@ -156,6 +150,11 @@ struct ContentView: View {
                         .padding()
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(8)
+                        
+                        Text("This setup allows you to hear and record system audio while also capturing your microphone")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
                         
                         HStack(spacing: 10) {
                             Button("Install BlackHole") {
