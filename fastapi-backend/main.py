@@ -75,10 +75,10 @@ async def transcribe_audio(file_path: str) -> AsyncGenerator[str, None]:
             word_timestamps=True,
             vad_filter=True,
             vad_parameters=dict(
-                min_speech_duration_ms=100,    # Shorter minimum speech duration
+                min_speech_duration_ms=50,     # More sensitive to short speech segments
                 max_speech_duration_s=float('inf'),
-                min_silence_duration_ms=100,   # Shorter silence duration
-                speech_pad_ms=100,            # Add padding to speech segments
+                min_silence_duration_ms=500,   # Longer silence to better detect speaker changes
+                speech_pad_ms=200,            # More padding around speech segments
                 window_size_samples=1024
             ),
             temperature=0.0,  # Use greedy decoding
@@ -90,10 +90,17 @@ async def transcribe_audio(file_path: str) -> AsyncGenerator[str, None]:
         
         current_speaker = "Speaker 1"
         last_end_time = 0
+        silence_threshold = 1.0  # Longer silence threshold for speaker changes
         
         for segment in segments:
-            # Check for significant pause between segments
-            if segment.start - last_end_time > 0.5:
+            # More sophisticated speaker change detection
+            time_since_last = segment.start - last_end_time
+            
+            # Detect speaker change based on silence duration and segment timing
+            if time_since_last > silence_threshold:
+                current_speaker = "Speaker 2" if current_speaker == "Speaker 1" else "Speaker 1"
+            elif time_since_last > 0.3 and segment.start > 5.0:  # Additional check for mid-recording changes
+                # More likely to switch speakers later in the recording
                 current_speaker = "Speaker 2" if current_speaker == "Speaker 1" else "Speaker 1"
             
             text = segment.text.strip()

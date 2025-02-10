@@ -11,7 +11,15 @@ class SpeechTranscriptionService {
     static let shared = SpeechTranscriptionService()
     
     // Use Cloud Run URL
-    let backendURL = URL(string: "https://audio-transcription-971151811017.us-central1.run.app/transcribe")!
+    private let backendURL: URL
+    
+    private init() {
+        if let url = URL(string: "https://audio-transcription-971151811017.us-central1.run.app/transcribe") {
+            self.backendURL = url
+        } else {
+            fatalError("Invalid backend URL")
+        }
+    }
     
     func sendAudio(fileURL: URL, onTranscript: @escaping (String, String) -> Void, onComplete: @escaping () -> Void, onError: @escaping (Error) -> Void) {
         var request = URLRequest(url: backendURL)
@@ -60,7 +68,11 @@ class SpeechTranscriptionService {
                 print("Raw server response: \(rawResponse)")
             }
             
-            let events = String(data: data, encoding: .utf8)?.components(separatedBy: "\n\n") ?? []
+            let events = String(data: data, encoding: .utf8)?
+                .components(separatedBy: "\n\n")
+                .filter { !$0.isEmpty }
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? []
+            
             print("Processing \(events.count) events")
             
             var hasCompletionEvent = false
@@ -71,12 +83,9 @@ class SpeechTranscriptionService {
                 print("Processing event: \(event)")
                 
                 // Try to extract JSON from the event
-                let jsonString: String
-                if event.hasPrefix("data: ") {
-                    jsonString = String(event.dropFirst(6))
-                } else {
-                    jsonString = event
-                }
+                let jsonString = event.hasPrefix("data: ") ? 
+                    String(event.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines) : 
+                    event.trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 guard let jsonData = jsonString.data(using: .utf8) else {
                     print("Could not convert event to data: \(jsonString)")
@@ -84,17 +93,15 @@ class SpeechTranscriptionService {
                 }
                 
                 do {
-                    if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                        print("Parsed JSON: \(json)")
-                        
-                        if let complete = json["complete"] as? Bool, complete {
-                            hasCompletionEvent = true
-                        } else if let speaker = json["speaker"] as? String,
-                                  let text = json["text"] as? String {
-                            print("Processing transcript: \(speaker) - \(text)")
-                            hasProcessedTranscript = true
-                            onTranscript(speaker, text)
-                        }
+                    let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+                    
+                    if let complete = json?["complete"] as? Bool, complete {
+                        hasCompletionEvent = true
+                    } else if let speaker = json?["speaker"] as? String,
+                              let text = json?["text"] as? String {
+                        print("Processing transcript: \(speaker) - \(text)")
+                        hasProcessedTranscript = true
+                        onTranscript(speaker, text)
                     }
                 } catch {
                     print("JSON parsing error: \(error)")

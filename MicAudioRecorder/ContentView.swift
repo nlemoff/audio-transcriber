@@ -54,8 +54,9 @@ struct ContentView: View {
                 DispatchQueue.main.async {
                     // Check if this is a new segment or continuation
                     if let lastSegment = transcriptSegments.last,
-                       lastSegment.speaker == speaker {
-                        // Update the last segment
+                       lastSegment.speaker == speaker,
+                       lastSegment.text.split(separator: ".").count == 1 {
+                        // Update the last segment only if it's a single sentence
                         transcriptSegments.removeLast()
                         transcriptSegments.append(TranscriptSegment(
                             speaker: speaker,
@@ -110,14 +111,14 @@ struct ContentView: View {
             Text("Mic Audio Recorder")
                 .font(.title)
             
-            if !audioRecorder.permissionGranted {
+            if !audioRecorder.isInitialized {
+                ProgressView("Initializing...")
+            } else if !audioRecorder.permissionGranted {
                 VStack {
                     Text("Microphone access is required")
                         .foregroundColor(.red)
                     Button("Open System Settings") {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                            NSWorkspace.shared.open(url)
-                        }
+                        audioRecorder.showMicrophonePermissionAlert()
                     }
                 }
             } else {
@@ -200,10 +201,8 @@ struct ContentView: View {
         }
         .padding()
         .frame(minWidth: 400, minHeight: 600)
-        .onChange(of: audioRecorder.audioFileURL) { _, newURL in
-            if let url = newURL {
-                print("New recording detected at: \(url.path)")
-            }
+        .onAppear {
+            audioRecorder.initialize()
         }
     }
 }
