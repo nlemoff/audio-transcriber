@@ -125,58 +125,17 @@ struct ContentView: View {
                     VStack(spacing: 10) {
                         Text("System Audio Recording")
                             .font(.headline)
-                        Text("To record both system audio and microphone:")
+                        Text("To record system audio, install BlackHole:")
                             .font(.subheadline)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("1. Install BlackHole audio driver")
-                            Text("2. Open Audio MIDI Setup (Applications/Utilities)")
-                            Text("3. Create Multi-Output Device:")
-                                .padding(.bottom, 2)
-                            Text("   • Check your speakers/headphones")
-                                .padding(.leading)
-                            Text("   • Check BlackHole 2ch")
-                                .padding(.leading)
-                            Text("   • Set speakers as master device")
-                                .padding(.leading)
-                            Text("4. In System Settings > Sound:")
-                                .padding(.bottom, 2)
-                            Text("   • Set Output to Multi-Output Device")
-                                .padding(.leading)
-                            Text("   • Set Input to BlackHole 2ch")
-                                .padding(.leading)
-                        }
-                        .font(.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .cornerRadius(8)
                         
-                        Text("This setup allows you to hear and record system audio while also capturing your microphone")
-                            .font(.caption2)
+                        Button("Install BlackHole") {
+                            audioRecorder.openBlackHoleInstallPage()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Text("After installation, restart the app")
+                            .font(.caption)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                        HStack(spacing: 10) {
-                            Button("Install BlackHole") {
-                                audioRecorder.openBlackHoleInstallPage()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            
-                            Button("Open Audio MIDI Setup") {
-                                NSWorkspace.shared.openApplication(
-                                    at: URL(fileURLWithPath: "/Applications/Utilities/Audio MIDI Setup.app"),
-                                    configuration: NSWorkspace.OpenConfiguration()
-                                )
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Button("Open Sound Settings") {
-                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                                    NSWorkspace.shared.open(url)
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                        }
                     }
                     .padding()
                     .background(Color(nsColor: .windowBackgroundColor))

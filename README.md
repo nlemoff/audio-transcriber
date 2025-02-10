@@ -47,41 +47,14 @@ cd audio-transcriber
 
 ### 3. System Audio Recording Setup (Optional)
 
-To record both system audio and microphone simultaneously:
+To enable system audio recording:
 
 1. Install BlackHole audio driver:
    - Visit https://github.com/ExistentialAudio/BlackHole
    - Follow installation instructions
+   - Restart the app after installation
 
-2. Configure Audio Setup:
-   a. Open "Audio MIDI Setup" (use Spotlight or find it in Applications/Utilities)
-   b. Click the "+" button in the bottom left corner and select "Create Multi-Output Device"
-   c. Configure the Multi-Output Device:
-      - Check both your speakers/headphones AND BlackHole 2ch
-      - Set your regular speakers/headphones as the master device
-
-3. Configure System Sound Settings:
-   - Open System Settings > Sound
-   - Under Output: Select the Multi-Output Device you created
-   - Under Input: Select BlackHole 2ch
-   
-4. In the MicAudioRecorder app:
-   - The app will automatically detect and use both your microphone and system audio
-   - No additional configuration needed within the app
-
-Note: This setup allows you to:
-- Hear system audio through your speakers/headphones
-- Record both system audio (through BlackHole) and microphone input simultaneously
-- Maintain normal system functionality
-
-Troubleshooting System Audio:
-- If you don't hear system audio: Make sure your speakers/headphones are checked in the Multi-Output Device
-- If system audio isn't being recorded: Ensure BlackHole 2ch is selected as your input device
-- If microphone isn't being recorded: Check that your microphone permissions are granted to the app
-
-For optimal quality:
-- In Audio MIDI Setup, set all devices to the same sample rate (48000 Hz recommended)
-- Keep the Multi-Output Device as your system output even when not recording
+The app will automatically detect BlackHole and enable system audio recording.
 
 ## Usage
 
@@ -155,6 +128,10 @@ docker run -d -p 8000:8000 nlemoff/audio-transcription:latest
 3. If system audio recording isn't working:
    - Verify BlackHole is installed and configured
    - Check System Settings > Sound for proper device setup
+
+For optimal quality:
+- In Audio MIDI Setup, set all devices to the same sample rate (48000 Hz recommended)
+- Keep the Multi-Output Device as your system output even when not recording
 
 ## Package Contents
 
