@@ -129,15 +129,27 @@ struct ContentView: View {
                             .font(.subheadline)
                         VStack(alignment: .leading, spacing: 5) {
                             Text("1. Install BlackHole audio driver")
-                            Text("2. Open System Settings > Sound")
-                            Text("3. Create Multi-Output Device with:")
+                            Text("2. Open Audio MIDI Setup (Applications/Utilities)")
+                            Text("3. Create Multi-Output Device:")
                                 .padding(.bottom, 2)
-                            Text("   • Your Speakers")
+                            Text("   • Check your speakers/headphones")
                                 .padding(.leading)
-                            Text("   • BlackHole 2ch")
+                            Text("   • Check BlackHole 2ch")
                                 .padding(.leading)
-                            Text("4. Set Multi-Output as default output")
-                            Text("5. Set BlackHole 2ch as default input")
+                            Text("   • Set speakers as master device")
+                                .padding(.leading)
+                            Text("4. Create Aggregate Device:")
+                                .padding(.bottom, 2)
+                            Text("   • Check your microphone")
+                                .padding(.leading)
+                            Text("   • Check BlackHole 2ch")
+                                .padding(.leading)
+                            Text("5. In System Settings > Sound:")
+                                .padding(.bottom, 2)
+                            Text("   • Set Output to Multi-Output Device")
+                                .padding(.leading)
+                            Text("   • Set Input to BlackHole 2ch")
+                                .padding(.leading)
                         }
                         .font(.caption)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -145,17 +157,27 @@ struct ContentView: View {
                         .background(Color(nsColor: .textBackgroundColor))
                         .cornerRadius(8)
                         
-                        Button("Install BlackHole") {
-                            audioRecorder.openBlackHoleInstallPage()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        
-                        Button("Open Sound Settings") {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                                NSWorkspace.shared.open(url)
+                        HStack(spacing: 10) {
+                            Button("Install BlackHole") {
+                                audioRecorder.openBlackHoleInstallPage()
                             }
+                            .buttonStyle(.borderedProminent)
+                            
+                            Button("Open Audio MIDI Setup") {
+                                NSWorkspace.shared.openApplication(
+                                    at: URL(fileURLWithPath: "/Applications/Utilities/Audio MIDI Setup.app"),
+                                    configuration: NSWorkspace.OpenConfiguration()
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            
+                            Button("Open Sound Settings") {
+                                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
                     }
                     .padding()
                     .background(Color(nsColor: .windowBackgroundColor))
