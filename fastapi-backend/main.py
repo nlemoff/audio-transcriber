@@ -88,14 +88,12 @@ async def transcribe_audio(file_path: str) -> AsyncGenerator[str, None]:
         )
         print(f"Transcription info: {info}")
         
-        current_speaker = None
-        current_text = []
+        current_speaker = "Speaker 1"
+        last_end_time = 0
         
         for segment in segments:
-            # Simulate speaker diarization based on pauses
-            if not current_speaker:
-                current_speaker = "Speaker 1"
-            elif len(current_text) > 0 and segment.start - segments[segments.index(segment)-1].end > 0.5:
+            # Check for significant pause between segments
+            if segment.start - last_end_time > 0.5:
                 current_speaker = "Speaker 2" if current_speaker == "Speaker 1" else "Speaker 1"
             
             text = segment.text.strip()
@@ -109,7 +107,7 @@ async def transcribe_audio(file_path: str) -> AsyncGenerator[str, None]:
                 }
                 
                 print(f"Segment: {result}")
-                current_text.append(text)
+                last_end_time = segment.end
                 yield json.dumps(result) + "\n"
                 await asyncio.sleep(0.1)  # Small delay to simulate real-time processing
             
