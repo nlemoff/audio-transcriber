@@ -10,8 +10,8 @@ import Foundation
 class SpeechTranscriptionService {
     static let shared = SpeechTranscriptionService()
     
-    // Use IP address instead of localhost
-    let backendURL = URL(string: "http://127.0.0.1:8000/transcribe")!
+    // Use Cloud Run URL
+    let backendURL = URL(string: "https://audio-transcription-971151811017.us-central1.run.app/transcribe")!
     
     func sendAudio(fileURL: URL, onTranscript: @escaping (String, String) -> Void, onComplete: @escaping () -> Void, onError: @escaping (Error) -> Void) {
         var request = URLRequest(url: backendURL)
