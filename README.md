@@ -47,19 +47,46 @@ cd audio-transcriber
 
 ### 3. System Audio Recording Setup (Optional)
 
-To record system audio, you'll need to:
+To record both system audio and microphone simultaneously:
 
 1. Install BlackHole audio driver:
    - Visit https://github.com/ExistentialAudio/BlackHole
    - Follow installation instructions
-   
-2. Configure System Audio:
+
+2. Configure Audio Setup:
+   a. Open "Audio MIDI Setup" (use Spotlight or find it in Applications/Utilities)
+   b. Click the "+" button in the bottom left corner and select "Create Multi-Output Device"
+   c. Configure the Multi-Output Device:
+      - Check both your speakers/headphones AND BlackHole 2ch
+      - Set your regular speakers/headphones as the master device
+   d. Create an Aggregate Device (click "+" again):
+      - Check your MacBook's built-in microphone
+      - Check BlackHole 2ch
+      - Name it something like "Combined Input"
+
+3. Configure System Sound Settings:
    - Open System Settings > Sound
-   - Create a Multi-Output Device with:
-     - Your Speakers
-     - BlackHole 2ch
-   - Set Multi-Output as default output
-   - Set BlackHole 2ch as default input
+   - Under Output: Select the Multi-Output Device you created
+   - Under Input: Select BlackHole 2ch
+   
+4. In the MicAudioRecorder app:
+   - The app will automatically detect and use both your microphone and system audio
+   - No additional configuration needed within the app
+
+Note: This setup allows you to:
+- Hear system audio through your speakers/headphones
+- Record both system audio and microphone input
+- Maintain normal system functionality
+
+Troubleshooting System Audio:
+- If you don't hear system audio: Make sure your speakers/headphones are checked in the Multi-Output Device
+- If system audio isn't being recorded: Ensure BlackHole 2ch is selected as your input device
+- If microphone isn't being recorded: Check that your microphone permissions are granted to the app
+
+For optimal quality:
+- In Audio MIDI Setup, set all devices to the same sample rate (48000 Hz recommended)
+- Keep the Multi-Output Device as your system output even when not recording
+- If you experience any audio drift, try recreating the Multi-Output Device
 
 ## Usage
 
