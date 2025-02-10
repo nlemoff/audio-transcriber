@@ -55,27 +55,54 @@ class SpeechTranscriptionService {
                 return
             }
             
+            // Print raw response for debugging
+            if let rawResponse = String(data: data, encoding: .utf8) {
+                print("Raw server response: \(rawResponse)")
+            }
+            
             let events = String(data: data, encoding: .utf8)?.components(separatedBy: "\n\n") ?? []
             print("Processing \(events.count) events")
             
             var hasCompletionEvent = false
+            var hasProcessedTranscript = false
             
             for event in events {
-                guard event.hasPrefix("data: ") else { continue }
+                guard !event.isEmpty else { continue }
+                print("Processing event: \(event)")
                 
-                let jsonString = String(event.dropFirst(6))
-                guard let jsonData = jsonString.data(using: .utf8),
-                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                // Try to extract JSON from the event
+                let jsonString: String
+                if event.hasPrefix("data: ") {
+                    jsonString = String(event.dropFirst(6))
+                } else {
+                    jsonString = event
+                }
+                
+                guard let jsonData = jsonString.data(using: .utf8) else {
+                    print("Could not convert event to data: \(jsonString)")
                     continue
                 }
                 
-                if let complete = json["complete"] as? Bool, complete {
-                    hasCompletionEvent = true
-                } else if let speaker = json["speaker"] as? String,
-                          let text = json["text"] as? String {
-                    print("Processing transcript: \(speaker) - \(text)")
-                    onTranscript(speaker, text)
+                do {
+                    if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                        print("Parsed JSON: \(json)")
+                        
+                        if let complete = json["complete"] as? Bool, complete {
+                            hasCompletionEvent = true
+                        } else if let speaker = json["speaker"] as? String,
+                                  let text = json["text"] as? String {
+                            print("Processing transcript: \(speaker) - \(text)")
+                            hasProcessedTranscript = true
+                            onTranscript(speaker, text)
+                        }
+                    }
+                } catch {
+                    print("JSON parsing error: \(error)")
                 }
+            }
+            
+            if !hasProcessedTranscript {
+                print("Warning: No transcript was processed from the response")
             }
             
             if hasCompletionEvent {

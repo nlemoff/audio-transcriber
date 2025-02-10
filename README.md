@@ -1,38 +1,61 @@
 # MicAudioRecorder
 
-A macOS app that records audio and provides real-time transcription.
+A macOS application that records audio from both microphone and system audio (browser, applications, etc.) and provides real-time transcription.
+
+## Features
+
+- Record from microphone
+- Record system audio (requires BlackHole audio driver)
+- Real-time audio transcription
+- Clean, modern user interface
+- Automatic file management
 
 ## Requirements
 
 - macOS 11.0 or later
-- Python 3.9 or later
-- Microphone access
-- Xcode Command Line Tools (for building the app)
+- Xcode 14.0 or later (for development)
+- BlackHole 2ch audio driver (for system audio recording)
 
 ## Installation
 
-1. Download the complete project:
-   - Use `git clone https://github.com/nlemoff/audio-transcriber.git`
-   - OR download the ZIP file using GitHub's "Code → Download ZIP" button
-   - Important: Make sure you have the entire project, including `MicAudioRecorder.xcodeproj`
-2. Right-click on `run_app.command` and select "Open"
-   - If you get a security warning, go to System Settings -> Privacy & Security and allow the script to run
-3. The script will:
-   - Build the app using Xcode tools
-   - Check for Python and pip
-   - Set up a virtual environment
-   - Install required Python packages
-   - Start the backend server
-   - Launch the app
+1. Clone this repository
+2. Open `MicAudioRecorder.xcodeproj` in Xcode
+3. Build and run the project
+
+### System Audio Recording Setup
+
+To record system audio, you'll need to:
+
+1. Install BlackHole audio driver:
+   - Visit https://github.com/ExistentialAudio/BlackHole
+   - Follow installation instructions
+   
+2. Configure System Audio:
+   - Open System Settings > Sound
+   - Create a Multi-Output Device with:
+     - Your Speakers
+     - BlackHole 2ch
+   - Set Multi-Output as default output
+   - Set BlackHole 2ch as default input
 
 ## Usage
 
-1. Click "Record" to start recording audio
-2. Click "Stop Recording" when finished
-3. Click "Transcribe" to transcribe the recording
-4. The transcription will appear in the scrollable area
-5. You can record and transcribe multiple messages
-6. To quit, press Ctrl+C in the terminal window running the script
+1. Launch the application
+2. Grant microphone permissions when prompted
+3. Click "Record" to start recording
+4. Click "Stop Recording" to stop
+5. Click "Transcribe" to generate transcription
+
+## Development
+
+The project uses:
+- SwiftUI for the user interface
+- AVFoundation for audio recording
+- Core Audio for device management
+
+## License
+
+MIT License
 
 ## Troubleshooting
 

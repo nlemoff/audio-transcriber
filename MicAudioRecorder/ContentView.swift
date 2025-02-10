@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var isTranscribing = false
     @State private var transcribedFiles: Set<String> = []
     @State private var currentTranscriptionPath: String? = nil
+    @State private var showingDriverAlert = false
     
     private var canTranscribe: Bool {
         guard let currentURL = audioRecorder.audioFileURL else { return false }
@@ -41,12 +42,32 @@ struct ContentView: View {
         currentTranscriptionPath = audioURL.path
         print("Starting transcription of file: \(audioURL.path)")
         
+        // Clear previous transcripts for this file
+        if transcriptSegments.isEmpty {
+            transcriptSegments = []
+        }
+        
         SpeechTranscriptionService.shared.sendAudio(
             fileURL: audioURL,
             onTranscript: { speaker, text in
-                print("Received transcript segment for: \(audioURL.path)")
+                print("Received transcript segment: \(speaker) - \(text)")
                 DispatchQueue.main.async {
-                    transcriptSegments.append(TranscriptSegment(speaker: speaker, text: text))
+                    // Check if this is a new segment or continuation
+                    if let lastSegment = transcriptSegments.last,
+                       lastSegment.speaker == speaker {
+                        // Update the last segment
+                        transcriptSegments.removeLast()
+                        transcriptSegments.append(TranscriptSegment(
+                            speaker: speaker,
+                            text: lastSegment.text + " " + text
+                        ))
+                    } else {
+                        // Add new segment
+                        transcriptSegments.append(TranscriptSegment(
+                            speaker: speaker,
+                            text: text
+                        ))
+                    }
                 }
             },
             onComplete: {
@@ -56,6 +77,14 @@ struct ContentView: View {
                     isTranscribing = false
                     currentTranscriptionPath = nil
                     print("File marked as transcribed: \(audioURL.path)")
+                    
+                    // If no transcripts were received, add an error message
+                    if transcriptSegments.isEmpty {
+                        transcriptSegments.append(TranscriptSegment(
+                            speaker: "System",
+                            text: "No speech detected in the recording."
+                        ))
+                    }
                 }
             },
             onError: { error in
@@ -63,6 +92,13 @@ struct ContentView: View {
                 DispatchQueue.main.async {
                     isTranscribing = false
                     currentTranscriptionPath = nil
+                    
+                    // Add error message to transcript
+                    transcriptSegments.append(TranscriptSegment(
+                        speaker: "Error",
+                        text: "Transcription failed: \(error.localizedDescription)"
+                    ))
+                    
                     print("Transcription error: \(error.localizedDescription)")
                 }
             }
@@ -85,10 +121,53 @@ struct ContentView: View {
                     }
                 }
             } else {
+                if !audioRecorder.isBlackHoleInstalled {
+                    VStack(spacing: 10) {
+                        Text("System Audio Recording")
+                            .font(.headline)
+                        Text("To record both system audio and microphone:")
+                            .font(.subheadline)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("1. Install BlackHole audio driver")
+                            Text("2. Open System Settings > Sound")
+                            Text("3. Create Multi-Output Device with:")
+                                .padding(.bottom, 2)
+                            Text("   • Your Speakers")
+                                .padding(.leading)
+                            Text("   • BlackHole 2ch")
+                                .padding(.leading)
+                            Text("4. Set Multi-Output as default output")
+                            Text("5. Set BlackHole 2ch as default input")
+                        }
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .cornerRadius(8)
+                        
+                        Button("Install BlackHole") {
+                            audioRecorder.openBlackHoleInstallPage()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button("Open Sound Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding()
+                    .background(Color(nsColor: .windowBackgroundColor))
+                    .cornerRadius(10)
+                }
+                
                 Button {
                     if audioRecorder.isRecording {
+                        print("Stop button pressed")
                         audioRecorder.stopRecording()
                     } else {
+                        print("Record button pressed")
                         audioRecorder.startRecording()
                     }
                 } label: {
@@ -141,7 +220,7 @@ struct ContentView: View {
         }
         .padding()
         .frame(minWidth: 400, minHeight: 600)
-        .onChange(of: audioRecorder.audioFileURL) { newURL in
+        .onChange(of: audioRecorder.audioFileURL) { _, newURL in
             if let url = newURL {
                 print("New recording detected at: \(url.path)")
             }
